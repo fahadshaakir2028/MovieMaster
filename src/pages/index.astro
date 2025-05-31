@@ -1,0 +1,208 @@
+---
+import Layout from '../layouts/Layout.astro';
+import MovieCard from '../components/MovieCard.astro';
+
+const API_KEY = import.meta.env.API_KEY;
+const API_URL = 'https://api.themoviedb.org/3/movie/popular';
+
+// Fetch popular movies from TMDb API
+const response = await fetch(`${API_URL}?api_key=${API_KEY}&language=en-US&page=1`);
+const data = await response.json();
+const popularMovies = data.results.slice(0, 4); // Just show 4 movies on homepage
+---
+
+<Layout title="Movie Database - Home">
+	<section class="hero bg-light rounded p-4 mb-5">
+		<div class="row align-items-center">
+			<div class="col-lg-6">
+				<h1 class="display-4 fw-bold">Welcome to Movie Database</h1>
+				<p class="lead">Discover the latest and greatest movies from around the world.</p>
+				<div class="d-grid gap-2 d-md-flex justify-content-md-start mt-4">
+					<a href="/movies" class="btn btn-primary btn-lg px-4 me-md-2">Browse Movies</a>
+					<a href="/favorites" class="btn btn-outline-secondary btn-lg px-4">Your Favorites</a>
+				</div>
+			</div>
+			<div class="col-lg-6 d-none d-lg-block">
+				<img src="https://image.tmdb.org/t/p/original/wwemzKWzjKYJFfCeiB57q3r4Bcm.png" class="img-fluid rounded" alt="Movie Database" />
+			</div>
+		</div>
+	</section>
+
+	<section class="mb-5">
+		<div class="d-flex justify-content-between align-items-center mb-4">
+			<h2>Popular Movies</h2>
+			<a href="/movies" class="btn btn-outline-primary">View All</a>
+		</div>
+		<div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-4">
+			{popularMovies.map((movie: any) => (
+				<div class="col">
+					<MovieCard 
+						id={movie.id}
+						title={movie.title} 
+						poster={movie.poster_path} 
+						rating={movie.vote_average} 
+					/>
+				</div>
+			))}
+		</div>
+	</section>
+
+	<section class="search-section bg-light p-4 rounded">
+		<h2 class="mb-4">Search for Movies</h2>
+		<div class="row justify-content-center">
+			<div class="col-md-8">
+				<div class="input-group mb-3">
+					<input type="text" id="searchInput" class="form-control form-control-lg" placeholder="Search for a movie..." aria-label="Search for a movie">
+					<button class="btn btn-primary" type="button" id="searchButton">Search</button>
+				</div>
+			</div>
+		</div>
+		<div id="searchResults" class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-4 mt-3">
+			<!-- Search results will be displayed here -->
+		</div>
+	</section>
+</Layout>
+
+<script>
+  // Define movie interface
+  interface Movie {
+    id: string;
+    title: string;
+    poster_path: string | null;
+    vote_average: number;
+  }
+
+  // Search functionality
+  const searchInput = document.getElementById('searchInput') as HTMLInputElement;
+  const searchButton = document.getElementById('searchButton');
+  const searchResults = document.getElementById('searchResults');
+  
+  // Function to search for movies
+  async function searchMovies(query: string): Promise<void> {
+    if (!query) return;
+    
+    try {
+      const response = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${import.meta.env.API_KEY}&language=en-US&query=${encodeURIComponent(query)}&page=1&include_adult=false`);
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        displaySearchResults(data.results.slice(0, 8)); // Limit to 8 results
+      } else {
+        if (searchResults) {
+          searchResults.innerHTML = '<div class="col-12 text-center"><p>No results found. Try a different search term.</p></div>';
+        }
+      }
+    } catch (error) {
+      console.error('Error searching movies:', error);
+      if (searchResults) {
+        searchResults.innerHTML = '<div class="col-12 text-center"><p>An error occurred. Please try again later.</p></div>';
+      }
+    }
+  }
+  
+  // Function to display search results
+  function displaySearchResults(movies: Movie[]): void {
+    if (!searchResults) return;
+    
+    searchResults.innerHTML = '';
+    
+    movies.forEach(movie => {
+      const posterUrl = movie.poster_path 
+        ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` 
+        : '/placeholder.svg';
+      
+      const movieCard = document.createElement('div');
+      movieCard.className = 'col';
+      movieCard.innerHTML = `
+        <div class="card h-100 shadow-sm">
+          <img src="${posterUrl}" class="card-img-top" alt="${movie.title} poster" style="height: 300px; object-fit: cover;">
+          <div class="card-body">
+            <h5 class="card-title text-truncate">${movie.title}</h5>
+            <div class="d-flex justify-content-between align-items-center mt-3">
+              <a href="/movies/${movie.id}" class="btn btn-primary btn-sm">Details</a>
+              <button class="btn btn-outline-danger btn-sm favorite-btn" 
+                data-movie-id="${movie.id}" 
+                data-movie-title="${movie.title}" 
+                data-movie-poster="${movie.poster_path}" 
+                data-movie-rating="${movie.vote_average}">
+                <i class="bi bi-heart"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      searchResults.appendChild(movieCard);
+    });
+    
+    // Initialize favorite buttons for search results
+    initFavoriteButtons();
+  }
+  
+  // Event listeners
+  if (searchButton) {
+    searchButton.addEventListener('click', () => {
+      if (searchInput) {
+        searchMovies(searchInput.value.trim());
+      }
+    });
+  }
+  
+  if (searchInput) {
+    searchInput.addEventListener('keypress', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        searchMovies(searchInput.value.trim());
+      }
+    });
+  }
+  
+  // Initialize favorite buttons
+  function initFavoriteButtons(): void {
+    document.querySelectorAll('.favorite-btn').forEach((btn: Element) => {
+      btn.addEventListener('click', function(this: HTMLElement) {
+        const movieId = this.dataset.movieId;
+        const movieTitle = this.dataset.movieTitle;
+        const moviePoster = this.dataset.moviePoster;
+        const movieRating = this.dataset.movieRating;
+        
+        if (movieId && movieTitle && movieRating) {
+          toggleFavorite({
+            id: movieId,
+            title: movieTitle,
+            poster_path: moviePoster || null,
+            vote_average: parseFloat(movieRating)
+          });
+          
+          // Toggle heart icon
+          const icon = this.querySelector('i');
+          if (icon && icon.classList.contains('bi-heart')) {
+            icon.classList.replace('bi-heart', 'bi-heart-fill');
+            this.classList.replace('btn-outline-danger', 'btn-danger');
+          } else if (icon) {
+            icon.classList.replace('bi-heart-fill', 'bi-heart');
+            this.classList.replace('btn-danger', 'btn-outline-danger');
+          }
+        }
+      });
+    });
+  }
+  
+  // Function to toggle favorite status
+  function toggleFavorite(movie: Movie): void {
+    let favorites: Movie[] = JSON.parse(localStorage.getItem('favorites') || '[]');
+    const index = favorites.findIndex(item => item.id === movie.id);
+    
+    if (index === -1) {
+      favorites.push(movie);
+      console.log(`Added ${movie.title} to favorites`);
+    } else {
+      favorites.splice(index, 1);
+      console.log(`Removed ${movie.title} from favorites`);
+    }
+    
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+  }
+  
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', initFavoriteButtons);
+</script>

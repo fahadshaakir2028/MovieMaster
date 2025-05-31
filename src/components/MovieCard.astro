@@ -1,0 +1,79 @@
+---
+export interface Props {
+  title: string;
+  poster: string;
+  rating: number;
+  id: string;
+}
+
+const { title, poster, rating, id } = Astro.props;
+
+// Format the poster URL or use a placeholder
+const posterUrl = poster ? `https://image.tmdb.org/t/p/w500${poster}` : '/placeholder.svg';
+
+// Format the rating to 1 decimal place
+const formattedRating = rating.toFixed(1);
+
+// Calculate rating percentage for the progress bar (0-10 scale to 0-100%)
+const ratingPercentage = Math.round(rating * 10);
+
+// Determine the rating color
+let ratingColor = 'bg-danger';
+if (rating >= 7) {
+  ratingColor = 'bg-success';
+} else if (rating >= 5) {
+  ratingColor = 'bg-warning text-dark';
+}
+
+---
+
+<div class="movie-card card h-100 shadow-sm">
+  <div class="position-relative">
+    <img src={posterUrl} class="card-img-top" alt={`${title} poster`} loading="lazy">
+    <div class="rating-badge position-absolute top-0 end-0 m-2 bg-dark text-white px-2 py-1 rounded-pill">
+      <i class="bi bi-star-fill text-warning me-1"></i>
+      <span>{formattedRating}</span>
+    </div>
+  </div>
+  <div class="card-body d-flex flex-column">
+    <h5 class="card-title text-truncate">{title}</h5>
+    <div class="progress mt-2 mb-3" style="height: 6px;">
+      <div class="progress-bar bg-success" role="progressbar" style={`width: ${ratingPercentage}%`} 
+        aria-valuenow={ratingPercentage} aria-valuemin="0" aria-valuemax="100"></div>
+    </div>
+    <div class="mt-auto d-flex justify-content-between">
+      <a href={`/movies/${id}`} class="btn btn-primary btn-sm">Details</a>
+      <button class="btn btn-outline-danger btn-sm favorite-btn" data-movie-id={id} data-movie-title={title} data-movie-poster={poster} data-movie-rating={rating}>
+        <i class="bi bi-heart"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .movie-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+  }
+  
+  .movie-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+  }
+  
+  .card-img-top {
+    height: 300px;
+    object-fit: cover;
+  }
+  
+  .rating-badge {
+    font-size: 0.8rem;
+    opacity: 0.9;
+  }
+  
+  @media (max-width: 768px) {
+    .card-img-top {
+      height: 250px;
+    }
+  }
+</style>

@@ -1,0 +1,297 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+export interface Props {
+  movieId: string;
+}
+
+// Enable server-side rendering for all movie IDs
+// This is more practical for a movie database with thousands of potential movie IDs
+export const prerender = false;
+
+const { movieId } = Astro.params;
+const API_KEY = import.meta.env.API_KEY;
+
+// Fetch movie details
+const movieResponse = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&language=en-US`);
+const movie = await movieResponse.json();
+
+// Fetch movie credits
+const creditsResponse = await fetch(`https://api.themoviedb.org/3/movie/${movieId}/credits?api_key=${API_KEY}&language=en-US`);
+const credits = await creditsResponse.json();
+
+// Fetch similar movies
+const similarResponse = await fetch(`https://api.themoviedb.org/3/movie/${movieId}/similar?api_key=${API_KEY}&language=en-US&page=1`);
+const similarMovies = await similarResponse.json();
+
+// Format release date
+const releaseDate = new Date(movie.release_date).toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric'
+});
+
+// Get director
+const director = credits.crew.find(person => person.job === 'Director');
+
+// Get top cast (limit to 6)
+const topCast = credits.cast.slice(0, 6);
+
+// Get similar movies (limit to 4)
+const similarMoviesList = similarMovies.results.slice(0, 4);
+
+// Format runtime
+function formatRuntime(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}h ${mins}m`;
+}
+---
+
+<Layout title={`${movie.title} - Movie Database`}>
+  <div class="movie-details">
+    <!-- Movie Header -->
+    <div class="movie-header position-relative mb-5">
+      <div class="backdrop-image" style={`background-image: url(https://image.tmdb.org/t/p/original${movie.backdrop_path})`}></div>
+      <div class="container position-relative">
+        <div class="row py-5">
+          <div class="col-md-4 mb-4 mb-md-0">
+            <div class="poster-container">
+              <img 
+                src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : '/placeholder.svg'} 
+                alt={`${movie.title} poster`}
+                class="img-fluid rounded shadow"
+              />
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div class="movie-info text-white">
+              <h1 class="display-4 fw-bold">{movie.title} <span class="text-muted fs-4">({movie.release_date.substring(0, 4)})</span></h1>
+              
+              <div class="d-flex flex-wrap align-items-center mb-3">
+                <span class="badge bg-warning text-dark me-2 p-2">
+                  <i class="bi bi-star-fill me-1"></i>
+                  {movie.vote_average.toFixed(1)}
+                </span>
+                <span class="me-3">{releaseDate}</span>
+                {movie.runtime && <span class="me-3">{formatRuntime(movie.runtime)}</span>}
+              </div>
+              
+              <div class="genres mb-4">
+                {movie.genres.map(genre => (
+                  <span class="badge bg-secondary me-2 mb-2 p-2">{genre.name}</span>
+                ))}
+              </div>
+              
+              <div class="mb-4">
+                <h5>Overview</h5>
+                <p class="lead">{movie.overview}</p>
+              </div>
+              
+              {director && (
+                <div class="mb-3">
+                  <h5>Director</h5>
+                  <p>{director.name}</p>
+                </div>
+              )}
+              
+              <div class="d-flex mt-4">
+                <button id="favoriteBtn" class="btn btn-outline-danger me-3" data-movie-id={movie.id}>
+                  <i class="bi bi-heart me-2"></i>
+                  Add to Favorites
+                </button>
+                {movie.homepage && (
+                  <a href={movie.homepage} target="_blank" rel="noopener noreferrer" class="btn btn-outline-light">
+                    <i class="bi bi-link-45deg me-2"></i>
+                    Official Website
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Cast Section -->
+    <div class="container mb-5">
+      <h2 class="mb-4">Top Cast</h2>
+      <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-3">
+        {topCast.map(person => (
+          <div class="col">
+            <div class="card h-100 border-0 shadow-sm">
+              <img 
+                src={person.profile_path ? `https://image.tmdb.org/t/p/w185${person.profile_path}` : '/placeholder-person.svg'} 
+                class="card-img-top" 
+                alt={person.name}
+                style="height: 275px; object-fit: cover;"
+              />
+              <div class="card-body">
+                <h6 class="card-title">{person.name}</h6>
+                <p class="card-text small text-muted">{person.character}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+    
+    <!-- Similar Movies Section -->
+    {similarMoviesList.length > 0 && (
+      <div class="container mb-5">
+        <h2 class="mb-4">Similar Movies</h2>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-4">
+          {similarMoviesList.map(movie => (
+            <div class="col">
+              <div class="card h-100 shadow-sm">
+                <img 
+                  src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : '/placeholder.svg'} 
+                  class="card-img-top" 
+                  alt={movie.title}
+                  style="height: 300px; object-fit: cover;"
+                />
+                <div class="card-body">
+                  <h5 class="card-title text-truncate">{movie.title}</h5>
+                  <div class="d-flex justify-content-between align-items-center mt-3">
+                    <span class="badge bg-warning text-dark p-2">
+                      <i class="bi bi-star-fill me-1"></i>
+                      {movie.vote_average.toFixed(1)}
+                    </span>
+                    <a href={`/movies/${movie.id}`} class="btn btn-primary btn-sm">Details</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+</Layout>
+
+<style>
+  .backdrop-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    filter: brightness(0.3);
+    z-index: 0;
+  }
+  
+  .movie-header {
+    background-color: #000;
+    color: white;
+    overflow: hidden;
+    min-height: 500px;
+  }
+  
+  .poster-container {
+    position: relative;
+    z-index: 1;
+  }
+  
+  .movie-info {
+    position: relative;
+    z-index: 1;
+  }
+  
+  @media (max-width: 768px) {
+    .movie-header {
+      min-height: auto;
+    }
+  }
+</style>
+
+<script>
+  // Favorite functionality
+  const favoriteBtn = document.getElementById('favoriteBtn');
+  
+  // Check if movie is already in favorites
+  function checkFavoriteStatus(movieId) {
+    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    return favorites.some(movie => movie.id == movieId);
+  }
+  
+  // Update button appearance
+  function updateFavoriteButton(isFavorite) {
+    if (!favoriteBtn) return;
+    
+    const icon = favoriteBtn.querySelector('i');
+    
+    if (isFavorite) {
+      favoriteBtn.textContent = '';
+      if (icon) {
+        icon.classList.replace('bi-heart', 'bi-heart-fill');
+      } else {
+        const newIcon = document.createElement('i');
+        newIcon.className = 'bi bi-heart-fill me-2';
+        favoriteBtn.prepend(newIcon);
+      }
+      favoriteBtn.appendChild(document.createTextNode('Remove from Favorites'));
+      favoriteBtn.classList.replace('btn-outline-danger', 'btn-danger');
+    } else {
+      favoriteBtn.textContent = '';
+      if (icon) {
+        icon.classList.replace('bi-heart-fill', 'bi-heart');
+      } else {
+        const newIcon = document.createElement('i');
+        newIcon.className = 'bi bi-heart me-2';
+        favoriteBtn.prepend(newIcon);
+      }
+      favoriteBtn.appendChild(document.createTextNode('Add to Favorites'));
+      favoriteBtn.classList.replace('btn-danger', 'btn-outline-danger');
+    }
+  }
+  
+  // Toggle favorite status
+  function toggleFavorite(movie) {
+    let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    const index = favorites.findIndex(item => item.id == movie.id);
+    
+    if (index === -1) {
+      favorites.push(movie);
+      console.log(`Added ${movie.title} to favorites`);
+      updateFavoriteButton(true);
+    } else {
+      favorites.splice(index, 1);
+      console.log(`Removed ${movie.title} from favorites`);
+      updateFavoriteButton(false);
+    }
+    
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+  }
+  
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!favoriteBtn) return;
+    
+    const movieId = favoriteBtn.getAttribute('data-movie-id');
+    if (!movieId) return;
+    
+    // Check if movie is already in favorites
+    const isFavorite = checkFavoriteStatus(movieId);
+    updateFavoriteButton(isFavorite);
+    
+    // Add click event listener
+    favoriteBtn.addEventListener('click', async () => {
+      // Get current movie data
+      try {
+        const response = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${import.meta.env.API_KEY}&language=en-US`);
+        const movieData = await response.json();
+        
+        toggleFavorite({
+          id: movieData.id,
+          title: movieData.title,
+          poster_path: movieData.poster_path,
+          vote_average: movieData.vote_average
+        });
+      } catch (error) {
+        console.error('Error toggling favorite:', error);
+      }
+    });
+  });
+</script>

@@ -1,0 +1,130 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Movie Database - Your Favorites">
+  <div class="container">
+    <header class="mb-4">
+      <h1>Your Favorite Movies</h1>
+      <p class="lead">Movies you've saved to your favorites list</p>
+    </header>
+
+    <div id="emptyFavorites" class="text-center py-5 d-none">
+      <div class="mb-4">
+        <i class="bi bi-heart-break text-danger" style="font-size: 4rem;"></i>
+      </div>
+      <h3>No Favorites Yet</h3>
+      <p class="text-muted mb-4">You haven't added any movies to your favorites list.</p>
+      <a href="/movies" class="btn btn-primary">Browse Movies</a>
+    </div>
+
+    <div id="favoritesList" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+      <!-- Favorites will be loaded here via JavaScript -->
+    </div>
+  </div>
+</Layout>
+
+<script>
+  // DOM elements
+  const favoritesList = document.getElementById('favoritesList');
+  const emptyFavorites = document.getElementById('emptyFavorites');
+  
+  // Load favorites from localStorage
+  function loadFavorites() {
+    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    
+    if (favorites.length === 0) {
+      if (emptyFavorites) {
+        emptyFavorites.classList.remove('d-none');
+      }
+      return;
+    }
+    
+    if (favoritesList) {
+      favoritesList.innerHTML = '';
+      
+      favorites.forEach(movie => {
+        const posterUrl = movie.poster_path 
+          ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` 
+          : '/placeholder.svg';
+        
+        const movieCard = document.createElement('div');
+        movieCard.className = 'col';
+        movieCard.innerHTML = `
+          <div class="card h-100 shadow-sm">
+            <div class="position-relative">
+              <img src="${posterUrl}" class="card-img-top" alt="${movie.title} poster" style="height: 300px; object-fit: cover;">
+              <div class="rating-badge position-absolute top-0 end-0 m-2 bg-dark text-white px-2 py-1 rounded-pill">
+                <i class="bi bi-star-fill text-warning me-1"></i>
+                <span>${movie.vote_average.toFixed(1)}</span>
+              </div>
+            </div>
+            <div class="card-body d-flex flex-column">
+              <h5 class="card-title text-truncate">${movie.title}</h5>
+              <div class="progress mt-2 mb-3" style="height: 6px;">
+                <div class="progress-bar bg-success" role="progressbar" style="width: ${Math.round(movie.vote_average * 10)}%" 
+                  aria-valuenow="${Math.round(movie.vote_average * 10)}" aria-valuemin="0" aria-valuemax="100"></div>
+              </div>
+              <div class="mt-auto d-flex justify-content-between">
+                <a href="/movies/${movie.id}" class="btn btn-primary btn-sm">Details</a>
+                <button class="btn btn-danger btn-sm remove-favorite-btn" data-movie-id="${movie.id}">
+                  <i class="bi bi-heart-fill"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        favoritesList.appendChild(movieCard);
+      });
+      
+      // Add event listeners to remove buttons
+      document.querySelectorAll('.remove-favorite-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const movieId = this.getAttribute('data-movie-id');
+          if (movieId) {
+            removeFavorite(movieId);
+          }
+        });
+      });
+    }
+  }
+  
+  // Remove a movie from favorites
+  function removeFavorite(movieId) {
+    let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    const index = favorites.findIndex(movie => movie.id == movieId);
+    
+    if (index !== -1) {
+      const movieTitle = favorites[index].title;
+      favorites.splice(index, 1);
+      localStorage.setItem('favorites', JSON.stringify(favorites));
+      console.log(`Removed ${movieTitle} from favorites`);
+      
+      // Reload the favorites list
+      loadFavorites();
+      
+      // Show empty state if no favorites left
+      if (favorites.length === 0 && emptyFavorites) {
+        emptyFavorites.classList.remove('d-none');
+      }
+    }
+  }
+  
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', loadFavorites);
+  
+  // Listen for storage events (in case favorites are updated in another tab)
+  window.addEventListener('storage', event => {
+    if (event.key === 'favorites') {
+      loadFavorites();
+    }
+  });
+</script>
+
+<style>
+  .bi-heart-break {
+    display: inline-block;
+    font-size: 4rem;
+  }
+</style>
