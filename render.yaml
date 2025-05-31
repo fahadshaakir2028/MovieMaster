@@ -5,3 +5,7 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     branch: main
+    # Specify Node.js version
+    envVars:
+      - key: NODE_VERSION
+        value: 18.18.0
