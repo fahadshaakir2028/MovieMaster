@@ -3,28 +3,36 @@ import Layout from '../layouts/Layout.astro';
 ---
 
 <Layout title="Movie Database - Your Favorites">
-  <div class="container">
-    <header class="mb-4">
-      <h1>Your Favorite Movies</h1>
-      <p class="lead">Movies you've saved to your favorites list</p>
-    </header>
-
-    <div id="emptyFavorites" class="text-center py-5 d-none">
-      <div class="mb-4">
-        <i class="bi bi-heart-break text-danger" style="font-size: 4rem;"></i>
+  <div class="favorites-container">
+    <div class="hero-section">
+      <div class="container">
+        <h1 class="display-4 fw-bold">Your Favorite Movies</h1>
+        <p class="lead">Your personal collection of cinematic treasures</p>
       </div>
-      <h3>No Favorites Yet</h3>
-      <p class="text-muted mb-4">You haven't added any movies to your favorites list.</p>
-      <a href="/movies" class="btn btn-primary">Browse Movies</a>
     </div>
 
-    <div id="favoritesList" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
-      <!-- Favorites will be loaded here via JavaScript -->
+    <div class="container main-content">
+      <div id="emptyFavorites" class="empty-state d-none">
+        <div class="empty-state-inner">
+          <div class="empty-icon">
+            <i class="bi bi-heart-break"></i>
+          </div>
+          <h2>No Favorites Yet</h2>
+          <p class="text-muted">Your favorites collection is empty. Start building your personal movie collection!</p>
+          <a href="/movies" class="btn btn-primary btn-lg pulse-btn">
+            <i class="bi bi-film me-2"></i>Discover Movies
+          </a>
+        </div>
+      </div>
+
+      <div id="favoritesList" class="favorites-grid">
+        <!-- Favorites will be loaded here via JavaScript -->
+      </div>
     </div>
   </div>
 </Layout>
 
-<script>
+<script is:inline>
   // DOM elements
   const favoritesList = document.getElementById('favoritesList');
   const emptyFavorites = document.getElementById('emptyFavorites');
@@ -43,32 +51,42 @@ import Layout from '../layouts/Layout.astro';
     if (favoritesList) {
       favoritesList.innerHTML = '';
       
-      favorites.forEach(movie => {
+      favorites.forEach((movie, index) => {
         const posterUrl = movie.poster_path 
           ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` 
           : '/placeholder.svg';
         
         const movieCard = document.createElement('div');
-        movieCard.className = 'col';
+        movieCard.className = 'movie-card';
+        movieCard.style.animationDelay = `${index * 0.05}s`;
         movieCard.innerHTML = `
-          <div class="card h-100 shadow-sm">
-            <div class="position-relative">
-              <img src="${posterUrl}" class="card-img-top" alt="${movie.title} poster" style="height: 300px; object-fit: cover;">
-              <div class="rating-badge position-absolute top-0 end-0 m-2 bg-dark text-white px-2 py-1 rounded-pill">
-                <i class="bi bi-star-fill text-warning me-1"></i>
+          <div class="movie-card-inner">
+            <div class="poster-container">
+              <img src="${posterUrl}" class="movie-poster" alt="${movie.title} poster">
+              <div class="movie-overlay">
+                <a href="/movies/${movie.id}" class="overlay-btn details-btn">
+                  <i class="bi bi-info-circle"></i>
+                </a>
+                <button class="overlay-btn remove-btn" data-movie-id="${movie.id}" title="Remove from favorites">
+                  <i class="bi bi-x-circle"></i>
+                </button>
+              </div>
+              <div class="rating">
+                <i class="bi bi-star-fill"></i>
                 <span>${movie.vote_average.toFixed(1)}</span>
               </div>
             </div>
-            <div class="card-body d-flex flex-column">
-              <h5 class="card-title text-truncate">${movie.title}</h5>
-              <div class="progress mt-2 mb-3" style="height: 6px;">
-                <div class="progress-bar bg-success" role="progressbar" style="width: ${Math.round(movie.vote_average * 10)}%" 
-                  aria-valuenow="${Math.round(movie.vote_average * 10)}" aria-valuemin="0" aria-valuemax="100"></div>
+            <div class="movie-info">
+              <h3 class="movie-title">${movie.title}</h3>
+              <div class="rating-bar">
+                <div class="rating-fill" style="width: ${Math.round(movie.vote_average * 10)}%"></div>
               </div>
-              <div class="mt-auto d-flex justify-content-between">
-                <a href="/movies/${movie.id}" class="btn btn-primary btn-sm">Details</a>
-                <button class="btn btn-danger btn-sm remove-favorite-btn" data-movie-id="${movie.id}">
-                  <i class="bi bi-heart-fill"></i>
+              <div class="card-actions">
+                <a href="/movies/${movie.id}" class="btn btn-primary btn-sm">
+                  <i class="bi bi-film me-1"></i> Details
+                </a>
+                <button class="btn btn-outline-danger btn-sm remove-favorite-btn" data-movie-id="${movie.id}">
+                  <i class="bi bi-heart-fill me-1"></i> Remove
                 </button>
               </div>
             </div>
@@ -78,13 +96,30 @@ import Layout from '../layouts/Layout.astro';
         favoritesList.appendChild(movieCard);
       });
       
-      // Add event listeners to remove buttons
-      document.querySelectorAll('.remove-favorite-btn').forEach(btn => {
+      // Add event listeners to remove buttons (both overlay and button)
+      document.querySelectorAll('.remove-favorite-btn, .remove-btn').forEach(btn => {
         btn.addEventListener('click', function() {
           const movieId = this.getAttribute('data-movie-id');
           if (movieId) {
-            removeFavorite(movieId);
+            const card = this.closest('.movie-card');
+            if (card) {
+              card.classList.add('removing');
+              // Wait for animation to complete before actually removing
+              setTimeout(() => removeFavorite(movieId), 300);
+            } else {
+              removeFavorite(movieId);
+            }
           }
+        });
+      });
+
+      // Add hover effects for movie cards
+      document.querySelectorAll('.movie-card').forEach(card => {
+        card.addEventListener('mouseenter', function() {
+          this.classList.add('hover');
+        });
+        card.addEventListener('mouseleave', function() {
+          this.classList.remove('hover');
         });
       });
     }
@@ -99,7 +134,9 @@ import Layout from '../layouts/Layout.astro';
       const movieTitle = favorites[index].title;
       favorites.splice(index, 1);
       localStorage.setItem('favorites', JSON.stringify(favorites));
-      console.log(`Removed ${movieTitle} from favorites`);
+      
+      // Show a toast notification
+      showToast(`Removed "${movieTitle}" from favorites`);
       
       // Reload the favorites list
       loadFavorites();
@@ -109,6 +146,28 @@ import Layout from '../layouts/Layout.astro';
         emptyFavorites.classList.remove('d-none');
       }
     }
+  }
+
+  // Show toast notification
+  function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.innerHTML = `
+      <div class="toast-icon">
+        <i class="bi bi-check-circle-fill"></i>
+      </div>
+      <div class="toast-message">${message}</div>
+    `;
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
   }
   
   // Initialize on page load
@@ -123,8 +182,354 @@ import Layout from '../layouts/Layout.astro';
 </script>
 
 <style>
-  .bi-heart-break {
-    display: inline-block;
-    font-size: 4rem;
+  /* Hero Section */
+  .hero-section {
+    background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+    color: white;
+    padding: 4rem 0 3rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
+
+  .hero-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-.895-3-2-3-2 1.343-2 3 .895 3 2 3zm63 31c1.657 0 3-1.343 3-3s-.895-3-2-3-2 1.343-2 3 .895 3 2 3zM34 90c1.657 0 3-1.343 3-3s-.895-3-2-3-2 1.343-2 3 .895 3 2 3zm56-76c1.657 0 3-1.343 3-3s-.895-3-2-3-2 1.343-2 3 .895 3 2 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%234050b5' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+    opacity: 0.3;
+  }
+
+  .hero-section .display-4 {
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  .hero-section .lead {
+    font-size: 1.25rem;
+    opacity: 0.9;
+  }
+
+  /* Main Content */
+  .main-content {
+    min-height: 60vh;
+    padding-bottom: 4rem;
+  }
+
+  /* Empty State */
+  .empty-state {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 50vh;
+    text-align: center;
+  }
+
+  .empty-state-inner {
+    max-width: 500px;
+    padding: 3rem;
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  .empty-icon {
+    margin-bottom: 1.5rem;
+  }
+
+  .empty-icon .bi-heart-break {
+    font-size: 5rem;
+    color: #ff4081;
+    animation: pulse 2s infinite;
+  }
+
+  .empty-state h2 {
+    margin-bottom: 1rem;
+    font-weight: 600;
+  }
+
+  .pulse-btn {
+    margin-top: 1.5rem;
+    animation: pulse 2s infinite;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .pulse-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Favorites Grid */
+  .favorites-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
+    padding: 1rem 0;
+  }
+
+  /* Movie Card */
+  .movie-card {
+    border-radius: 12px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    animation: fadeInUp 0.5s both;
+    transform-origin: center bottom;
+  }
+
+  .movie-card.hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+  }
+
+  .movie-card.removing {
+    animation: fadeOutDown 0.3s forwards;
+  }
+
+  .movie-card-inner {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .poster-container {
+    position: relative;
+    overflow: hidden;
+    padding-top: 150%; /* 2:3 aspect ratio */
+  }
+
+  .movie-poster {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+  }
+
+  .movie-card.hover .movie-poster {
+    transform: scale(1.05);
+  }
+
+  .movie-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .movie-card.hover .movie-overlay {
+    opacity: 1;
+  }
+
+  .overlay-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    color: #1a237e;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s ease;
+  }
+
+  .details-btn {
+    transition-delay: 0.05s;
+  }
+
+  .remove-btn {
+    background: #ff4081;
+    color: white;
+    transition-delay: 0.1s;
+  }
+
+  .movie-card.hover .overlay-btn {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .overlay-btn:hover {
+    transform: scale(1.1) translateY(0) !important;
+  }
+
+  .rating {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 0.3rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .rating .bi-star-fill {
+    color: #ffc107;
+  }
+
+  .movie-info {
+    padding: 1.2rem;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .movie-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.8rem;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .rating-bar {
+    height: 6px;
+    background: #e0e0e0;
+    border-radius: 3px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+
+  .rating-fill {
+    height: 100%;
+    background: linear-gradient(to right, #4caf50, #8bc34a);
+  }
+
+  .card-actions {
+    margin-top: auto;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .card-actions .btn {
+    flex: 1;
+    border-radius: 20px;
+    transition: all 0.2s ease;
+  }
+
+  .card-actions .btn:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Toast Notification */
+  .toast-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #323232;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s ease;
+  }
+
+  .toast-notification.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .toast-icon {
+    color: #4caf50;
+    font-size: 1.2rem;
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeOutDown {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  /* Responsive Adjustments */
+  @media (max-width: 768px) {
+    .favorites-grid {
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+
+    .movie-info {
+      padding: 0.8rem;
+    }
+
+    .movie-title {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-actions {
+      flex-direction: column;
+    }
+
+    .hero-section {
+      padding: 2.5rem 0 2rem;
+    }
   }
 </style>
