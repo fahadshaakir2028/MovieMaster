@@ -8,4 +8,4 @@ services:
     # Specify Node.js version
     envVars:
       - key: NODE_VERSION
-        value: 18.18.0
+        value: 18.20.8
