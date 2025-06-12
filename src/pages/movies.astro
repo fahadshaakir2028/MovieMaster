@@ -2,13 +2,24 @@
 import Layout from '../layouts/Layout.astro';
 import MovieCard from '../components/MovieCard.astro';
 
-const API_KEY = import.meta.env.API_KEY;
-const API_URL = 'https://api.themoviedb.org/3/movie/popular';
+let movies = [];
 
-// Fetch popular movies from TMDb API
-const response = await fetch(`${API_URL}?api_key=${API_KEY}&language=en-US&page=1`);
-const data = await response.json();
-const movies = data.results;
+try {
+  const API_KEY = import.meta.env.API_KEY;
+  const API_URL = 'https://api.themoviedb.org/3/movie/popular';
+
+  // Only fetch if API_KEY is available
+  if (API_KEY) {
+    // Fetch popular movies from TMDb API
+    const response = await fetch(`${API_URL}?api_key=${API_KEY}&language=en-US&page=1`);
+    const data = await response.json();
+    movies = data.results || [];
+  }
+} catch (error) {
+  console.error('Error fetching movies:', error);
+  // Fallback to empty array if fetch fails
+  movies = [];
+}
 ---
 
 <Layout title="Movie Database - All Movies">
@@ -33,16 +44,25 @@ const movies = data.results;
     </header>
 
     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4" id="movieGrid">
-      {movies.map((movie: any) => (
-        <div class="col">
-          <MovieCard 
-            id={movie.id}
-            title={movie.title} 
-            poster={movie.poster_path} 
-            rating={movie.vote_average} 
-          />
+      {movies && movies.length > 0 ? (
+        movies.map((movie: any) => (
+          <div class="col">
+            <MovieCard 
+              id={movie.id}
+              title={movie.title} 
+              poster={movie.poster_path} 
+              rating={movie.vote_average} 
+            />
+          </div>
+        ))
+      ) : (
+        <div class="col-12 text-center py-5">
+          <div class="alert alert-info">
+            <i class="bi bi-film me-2"></i>
+            No movies available at the moment. Please check back later.
+          </div>
         </div>
-      ))}
+      )}
     </div>
 
     <div class="d-flex justify-content-center my-5">
@@ -78,20 +98,31 @@ const movies = data.results;
     if (!query) return;
     
     try {
-      const response = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${import.meta.env.API_KEY}&language=en-US&query=${encodeURIComponent(query)}&page=1&include_adult=false`);
+      // Check if API key is available
+      const apiKey = import.meta.env.API_KEY;
+      if (!apiKey) {
+        throw new Error('API key is not available');
+      }
+      
+      const response = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&language=en-US&query=${encodeURIComponent(query)}&page=1&include_adult=false`);
+      
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (data.results && data.results.length > 0) {
         displaySearchResults(data.results);
       } else {
         if (movieGrid) {
-          movieGrid.innerHTML = '<div class="col-12 text-center"><p>No results found. Try a different search term.</p></div>';
+          movieGrid.innerHTML = '<div class="col-12 text-center py-5"><div class="alert alert-warning"><i class="bi bi-search me-2"></i>No results found. Try a different search term.</div></div>';
         }
       }
     } catch (error) {
       console.error('Error searching movies:', error);
       if (movieGrid) {
-        movieGrid.innerHTML = '<div class="col-12 text-center"><p>An error occurred. Please try again later.</p></div>';
+        movieGrid.innerHTML = '<div class="col-12 text-center py-5"><div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>An error occurred. Please try again later.</div></div>';
       }
     }
   }
@@ -178,9 +209,25 @@ const movies = data.results;
     if (!sortType) return;
     
     try {
+      // Check if API key is available
+      const apiKey = import.meta.env.API_KEY;
+      if (!apiKey) {
+        throw new Error('API key is not available');
+      }
+      
       // Fetch all movies again to sort
-      const response = await fetch(`https://api.themoviedb.org/3/movie/popular?api_key=${import.meta.env.API_KEY}&language=en-US&page=1`);
+      const response = await fetch(`https://api.themoviedb.org/3/movie/popular?api_key=${apiKey}&language=en-US&page=1`);
+      
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+      
       const data = await response.json();
+      
+      if (!data.results || !Array.isArray(data.results)) {
+        throw new Error('Invalid response format from API');
+      }
+      
       let sortedMovies = [...data.results];
       
       switch(sortType) {
@@ -198,6 +245,9 @@ const movies = data.results;
       displaySearchResults(sortedMovies);
     } catch (error) {
       console.error('Error sorting movies:', error);
+      if (movieGrid) {
+        movieGrid.innerHTML = '<div class="col-12 text-center py-5"><div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Failed to sort movies. Please try again later.</div></div>';
+      }
     }
   }
   
